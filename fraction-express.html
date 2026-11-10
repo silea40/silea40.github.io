@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fraction Express</title>
+<style>
+:root {
+  --ink: #14213d;
+  --soft: #3d4a68;
+  --sky: #d4edff;
+  --grass: #8fd17f;
+  --kraft: #f0c88f;
+  --red: #c1121f;
+  --yellow: #ffcf33;
+  --green: #17693f;
+  --green-pale: #dcf5e6;
+  --wrong-pale: #ffe9e4;
+  --wood: #5a3d22;
+  --inset: 38px;
+  --head: "Arial Rounded MT Bold", "Trebuchet MS", Verdana, sans-serif;
+  --text: Verdana, "Trebuchet MS", Tahoma, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--sky); color: var(--ink); font: 18px/1.5 var(--text); }
+.wrap { max-width: 960px; margin: 0 auto; padding: 14px 16px 34px; }
+[hidden] { display: none !important; }
+h1, h2, h3 { font-family: var(--head); line-height: 1.15; margin: 0; }
+h1:focus, h2:focus, #feedback:focus { outline: none; }
+p { margin: 0 0 10px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 4px solid var(--ink); outline-offset: 3px; box-shadow: 0 0 0 9px #fff; }
+
+button {
+  font: 700 19px/1.2 var(--head); color: var(--ink); background: #fff;
+  border: 3px solid var(--ink); border-radius: 10px; padding: 11px 18px; min-height: 50px;
+  cursor: pointer; box-shadow: 0 4px 0 var(--ink);
+}
+button:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+button:hover:not(:disabled) { background: #fff3c4; }
+button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+button.go { background: var(--yellow); }
+button.go:hover:not(:disabled) { background: #ffe07a; }
+button.check { background: var(--green); color: #fff; }
+button.check:hover:not(:disabled) { background: #0f5230; color: #fff; }
+
+/* Start screen */
+.title { font-size: clamp(42px, 8vw, 68px); margin-top: 8px; }
+.lead { font-size: 21px; margin: 6px 0 16px; }
+.panel { background: #fff; border: 3px solid var(--ink); border-radius: 14px; padding: 16px 18px; margin-bottom: 16px; }
+.panel h2 { font-size: 25px; margin-bottom: 8px; }
+.how { margin: 0 0 12px; padding-left: 28px; }
+.how li { margin-bottom: 3px; }
+.levels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+.levels button { text-align: left; padding: 14px 16px; }
+.levels strong { display: block; font-size: 24px; }
+.levels span { display: block; font: 400 16.5px/1.35 var(--text); margin-top: 3px; }
+details { background: #fff; border: 2px solid var(--ink); border-radius: 10px; padding: 8px 14px; font-size: 16px; }
+summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+details ul { margin: 6px 0 8px; padding-left: 22px; }
+
+/* Stacked fraction */
+.f { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; font-family: var(--head); font-weight: 700; }
+.f .stack { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.05; }
+.f .top { padding: 0 3px; border-bottom: .11em solid currentColor; }
+.f .bot { padding: 0 3px; }
+.f.say-f { font-size: .84em; margin: 0 2px; }
+
+/* Game header */
+.bar-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 8px; }
+.bar-top h2 { font-size: 24px; flex: 1 1 200px; }
+.stars { font: 700 21px/1 var(--head); white-space: nowrap; }
+.steps { font-size: 16.5px; margin-bottom: 8px; }
+.lineinfo { font-size: 16.5px; font-weight: 700; margin-bottom: 8px; }
+.chance { background: var(--yellow); border: 3px solid var(--ink); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-weight: 700; }
+
+/* Parcels */
+.tray { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.parcel {
+  min-width: 104px; padding: 8px 10px 7px; display: flex; flex-direction: column; align-items: center;
+  background: linear-gradient(90deg, transparent 47%, rgba(90,61,34,.28) 47%, rgba(90,61,34,.28) 53%, transparent 53%), var(--kraft);
+}
+.parcel:hover:not(:disabled) { background: linear-gradient(90deg, transparent 47%, rgba(90,61,34,.28) 47%, rgba(90,61,34,.28) 53%, transparent 53%), #f7dcb4; }
+.parcel .f { font-size: 29px; background: #fff; border-radius: 7px; padding: 2px 8px; }
+.parcel .tag { font: 700 14.5px/1.2 var(--text); margin-top: 6px; background: #fff; border-radius: 5px; padding: 2px 6px; }
+.parcel.sel { background: var(--yellow); outline: 5px solid var(--ink); outline-offset: 1px; }
+.parcel.sel:hover:not(:disabled) { background: var(--yellow); }
+.parcel:disabled { background: var(--green-pale); border-color: var(--green); box-shadow: none; cursor: default; color: var(--green); opacity: 1; }
+
+/* The number line */
+#scene { background: #fff; border: 3px solid var(--ink); border-radius: 14px; overflow: hidden; }
+#track { position: relative; height: 142px; background: var(--sky); cursor: pointer; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+#track:focus-visible { outline: 4px solid var(--ink); outline-offset: -6px; box-shadow: none; }
+.line { position: absolute; left: var(--inset); right: var(--inset); top: 0; bottom: 0; }
+.ground { position: absolute; left: 0; right: 0; top: 84px; bottom: 0; background: var(--grass); }
+.rail { position: absolute; left: -10px; right: -10px; top: 82px; height: 6px; background: var(--ink); border-radius: 3px; }
+.sleeper { position: absolute; top: 74px; width: 5px; height: 22px; margin-left: -2.5px; background: var(--wood); }
+.sleeper.whole { top: 66px; height: 38px; width: 7px; margin-left: -3.5px; background: var(--ink); }
+.num { position: absolute; top: 106px; transform: translateX(-50%); font: 700 24px/1 var(--head); background: #fff; border: 2px solid var(--ink); border-radius: 7px; padding: 3px 9px; }
+#train { position: absolute; top: 28px; width: 70px; height: 50px; margin-left: -35px; transition: left .16s ease-out; pointer-events: none; }
+.pin { position: absolute; left: 50%; top: 46px; width: 0; height: 0; margin-left: -9px; border: 9px solid transparent; border-top: 11px solid var(--red); }
+
+/* Parcels on the line */
+#placed { position: relative; margin: 0 var(--inset); }
+.mini { position: absolute; width: 56px; margin-left: -28px; height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--kraft); border: 2px solid var(--ink); border-radius: 7px; }
+.mini::before { content: ""; position: absolute; left: 50%; top: -9px; height: 8px; width: 3px; margin-left: -1.5px; background: var(--ink); }
+.mini .f { font-size: 19px; }
+.mini.ok { background: var(--green-pale); border-color: var(--green); color: var(--green); }
+.mini .okmark { position: absolute; right: -7px; top: -9px; width: 22px; height: 22px; border-radius: 50%; background: var(--green); color: #fff; font: 700 15px/22px var(--text); text-align: center; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 11px; align-items: center; padding: 13px 14px; border-top: 3px solid var(--ink); background: #fff; }
+.controls .push { margin-left: auto; display: flex; gap: 11px; flex-wrap: wrap; }
+#say { font-size: 17px; font-weight: 700; min-height: 1.6em; padding: 9px 2px 0; }
+
+/* Feedback */
+#feedback { margin-top: 12px; }
+.fb { background: #fff; border: 3px solid var(--ink); padding: 11px 0 13px; margin-bottom: 10px; border-radius: 12px; }
+.fb.bad { background: var(--wrong-pale); border-color: var(--red); }
+.fb.good { background: var(--green-pale); border-color: var(--green); }
+.fb p { padding: 0 14px; margin-bottom: 6px; }
+.fb .mark { font-weight: 700; font-family: var(--head); font-size: 20px; }
+.model { position: relative; margin: 10px var(--inset) 26px; }
+.parts { display: flex; height: 38px; border: 3px solid var(--ink); background: #fff; }
+.part { flex: 1 1 0; min-width: 0; border-left: 2px solid var(--ink); }
+.part:first-child { border-left: 0; }
+.part.wholeline { border-left-width: 5px; }
+.part.shade { background: repeating-linear-gradient(45deg, var(--ink) 0 3px, var(--yellow) 3px 9px); }
+.you { position: absolute; top: 42px; transform: translateX(-50%); font: 700 14px/1.1 var(--text); white-space: nowrap; }
+.you::before { content: "\25B2"; display: block; text-align: center; line-height: .9; }
+.you.leftish { transform: translateX(-16%); }
+.you.leftish::before { text-align: left; }
+.you.rightish { transform: translateX(-84%); }
+.you.rightish::before { text-align: right; }
+.fb-actions { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 4px; }
+
+/* End */
+.big-result { font: 700 clamp(34px, 7vw, 54px)/1.1 var(--head); margin: 8px 0 10px; }
+.end-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+
+@media (max-width: 620px) {
+  :root { --inset: 32px; }
+  body { font-size: 17px; }
+  .levels { grid-template-columns: minmax(0, 1fr); }
+  .parcel { min-width: 88px; flex: 1 1 88px; }
+  .controls button { flex: 1 1 120px; }
+  .controls .push { margin-left: 0; width: 100%; }
+  .mini { width: 46px; margin-left: -23px; }
+  .mini .f { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #train { transition: none; }
+  button:active:not(:disabled) { transform: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <noscript><p class="panel">This game needs JavaScript. Ask your teacher to turn it on.</p></noscript>
+
+  <section id="start">
+    <h1 class="title" tabindex="-1" id="startTitle">Fraction Express</h1>
+    <p class="lead">Drive the train. Deliver every fraction parcel to the right stop on the number line.</p>
+    <div class="panel">
+      <h2>How to play</h2>
+      <ol class="how">
+        <li>Pick a parcel.</li>
+        <li>Move the train to the stop where that fraction belongs.</li>
+        <li>Press <strong>Drop parcel</strong>.</li>
+        <li>When all the parcels are on the line, press <strong>Check</strong>.</li>
+      </ol>
+      <p><strong>Using a keyboard?</strong> Tab moves between buttons. Enter picks. The arrow keys drive the train.</p>
+      <div id="example"></div>
+    </div>
+    <h2 style="font-size:25px;margin-bottom:10px">Choose a level</h2>
+    <div class="levels" id="levelButtons"></div>
+    <details>
+      <summary>For teachers</summary>
+      <p style="margin-top:6px">Pupils place fractions on a number line, then compare them. Stars are awarded only for parcels placed correctly first time. Parcels placed wrongly return in a second chance round.</p>
+      <ul>
+        <li>Level 1, Year 3: compare and order unit fractions, and fractions with the same denominators.</li>
+        <li>Level 2, Year 4: recognise equivalent fractions on a number line.</li>
+        <li>Level 3, Year 5: compare and order fractions whose denominators are all multiples of the same number.</li>
+        <li>Level 4, Year 6: compare and order fractions, including fractions greater than 1.</li>
+      </ul>
+      <p>The game needs no internet connection and does not ask for, store or send any information about pupils. Nothing is remembered once the page is closed.</p>
+    </details>
+  </section>
+
+  <section id="game" hidden>
+    <div class="bar-top">
+      <h2 id="roundTitle" tabindex="-1"></h2>
+      <div class="stars"><span aria-hidden="true">&#9733; </span><span id="stars">0</span> <span id="starWord">stars</span></div>
+      <button type="button" id="restart1">Restart</button>
+    </div>
+    <p class="chance" id="chance" hidden>Second chance! These parcels were tricky last time.</p>
+    <p class="steps">Pick a parcel. Move the train to its stop. Press Drop parcel.</p>
+    <p class="lineinfo" id="lineInfo"></p>
+    <div class="tray" id="tray" role="group" aria-label="Parcels to deliver"></div>
+    <div id="scene">
+      <div id="track" role="slider" tabindex="0" aria-label="Train on the number line. Use the left and right arrow keys. Press Enter to drop the parcel." aria-valuemin="0">
+        <div class="ground"></div>
+        <div class="line" id="line">
+          <div class="rail"></div>
+          <div id="sleepers"></div>
+          <div id="train" aria-hidden="true">
+            <svg viewBox="0 0 70 46" width="70" height="46">
+              <rect x="30" y="2" width="30" height="30" rx="3" fill="#c1121f" stroke="#14213d" stroke-width="3"/>
+              <rect x="37" y="8" width="16" height="11" fill="#d4edff" stroke="#14213d" stroke-width="2"/>
+              <rect x="6" y="14" width="26" height="18" fill="#c1121f" stroke="#14213d" stroke-width="3"/>
+              <rect x="9" y="4" width="9" height="11" fill="#14213d"/>
+              <circle cx="17" cy="37" r="7" fill="#14213d"/><circle cx="17" cy="37" r="2.5" fill="#fff"/>
+              <circle cx="47" cy="37" r="7" fill="#14213d"/><circle cx="47" cy="37" r="2.5" fill="#fff"/>
+            </svg>
+            <div class="pin"></div>
+          </div>
+        </div>
+      </div>
+      <div id="placedWrap" aria-hidden="true" style="background:#fff"><div id="placed"></div></div>
+      <div class="controls">
+        <button type="button" id="back">&#9664; Back 1 jump</button>
+        <button type="button" id="forward">Forward 1 jump &#9654;</button>
+        <div class="push">
+          <button type="button" id="drop" class="go">Drop parcel</button>
+          <button type="button" id="check" class="check">Check</button>
+        </div>
+      </div>
+    </div>
+    <div id="say" role="status" aria-live="polite"></div>
+    <div id="feedback" tabindex="-1" role="status" aria-live="polite"></div>
+  </section>
+
+  <section id="end" hidden>
+    <div class="panel">
+      <h2 id="endTitle" tabindex="-1" style="font-size:30px">Deliveries finished!</h2>
+      <p class="big-result"><span aria-hidden="true">&#9733; </span><span id="endStars"></span></p>
+      <p id="endDetail"></p>
+      <p id="endSecond"></p>
+      <p id="endAdvice" style="font-weight:700"></p>
+      <div class="end-actions">
+        <button type="button" id="endNext" class="go">Try the next level</button>
+        <button type="button" id="endAgain">Play this level again</button>
+        <button type="button" id="restart2">Restart</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* LEVELS-START: every fraction is written by hand, then checked by whole-number arithmetic */
+  var LEVELS = [
+    { name: 'Level 1', blurb: 'Fractions with the same bottom number, then halves, quarters and more.',
+      pools: [
+        { take: 2, rounds: [
+          { L: 5, r: 1, cards: ['1/5', '3/5', '4/5'] },
+          { L: 6, r: 1, cards: ['1/6', '2/6', '5/6'] },
+          { L: 8, r: 1, cards: ['3/8', '5/8', '7/8'] },
+          { L: 10, r: 1, cards: ['2/10', '5/10', '9/10'] },
+          { L: 7, r: 1, cards: ['2/7', '4/7', '6/7'] } ] },
+        { take: 2, rounds: [
+          { L: 4, r: 1, cards: ['1/2', '1/4'] },
+          { L: 8, r: 1, cards: ['1/2', '1/4', '1/8'] },
+          { L: 6, r: 1, cards: ['1/2', '1/3', '1/6'] },
+          { L: 10, r: 1, cards: ['1/2', '1/5', '1/10'] } ] }
+      ] },
+    { name: 'Level 2', blurb: 'Find fractions that are worth the same.',
+      pools: [
+        { take: 4, rounds: [
+          { L: 8, r: 1, cards: ['1/2', '2/4', '5/8'] },
+          { L: 8, r: 1, cards: ['1/4', '3/8', '3/4'] },
+          { L: 10, r: 1, cards: ['1/2', '2/5', '7/10'] },
+          { L: 10, r: 1, cards: ['1/5', '2/10', '4/5'] },
+          { L: 6, r: 1, cards: ['1/3', '2/6', '5/6'] },
+          { L: 6, r: 1, cards: ['2/3', '1/2', '1/6'] },
+          { L: 12, r: 1, cards: ['1/4', '3/12', '2/3'] } ] }
+      ] },
+    { name: 'Level 3', blurb: 'Compare fractions with different bottom numbers.',
+      pools: [
+        { take: 4, rounds: [
+          { L: 12, r: 1, cards: ['5/6', '7/12', '2/3'] },
+          { L: 12, r: 1, cards: ['1/3', '5/12', '1/6'] },
+          { L: 16, r: 1, cards: ['3/4', '5/8', '7/16'] },
+          { L: 16, r: 1, cards: ['1/4', '5/16', '7/8'] },
+          { L: 20, r: 1, cards: ['3/5', '7/10', '9/20'] },
+          { L: 18, r: 1, cards: ['2/3', '5/9', '11/18'] },
+          { L: 10, r: 1, cards: ['2/5', '3/10', '4/5', '9/10'] } ] }
+      ] },
+    { name: 'Level 4', blurb: 'A longer line with fractions bigger than 1.',
+      pools: [
+        { take: 4, rounds: [
+          { L: 8, r: 2, cards: ['7/4', '1 1/2', '5/8'] },
+          { L: 6, r: 2, cards: ['4/3', '1 5/6', '1/2'] },
+          { L: 10, r: 2, cards: ['6/5', '1 7/10', '9/10'] },
+          { L: 12, r: 2, cards: ['5/3', '1 1/4', '11/12'] },
+          { L: 4, r: 3, cards: ['9/4', '1 1/2', '3/4'] },
+          { L: 6, r: 3, cards: ['7/3', '1 5/6', '5/2'] } ] }
+      ] }
+  ];
+  /* LEVELS-END */
+
+  var NAMES = { 2: ['half', 'halves'], 3: ['third', 'thirds'], 4: ['quarter', 'quarters'], 5: ['fifth', 'fifths'],
+    6: ['sixth', 'sixths'], 7: ['seventh', 'sevenths'], 8: ['eighth', 'eighths'], 9: ['ninth', 'ninths'],
+    10: ['tenth', 'tenths'], 12: ['twelfth', 'twelfths'], 16: ['sixteenth', 'sixteenths'], 18: ['eighteenth', 'eighteenths'], 20: ['twentieth', 'twentieths'] };
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+  function shuffle(a) {
+    var b = a.slice();
+    for (var i = b.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = b[i]; b[i] = b[j]; b[j] = t;
+    }
+    return b;
+  }
+
+  /* ---------- Fractions: whole numbers only, so no rounding errors ---------- */
+  function parse(text) {
+    var m = /^(?:(\d+) )?(\d+)\/(\d+)$/.exec(text);
+    return { text: text, whole: m[1] ? Number(m[1]) : 0, n: Number(m[2]), d: Number(m[3]) };
+  }
+  function topNumber(c) { return c.whole * c.d + c.n; }
+  function target(c, L) { return topNumber(c) * L / c.d; }
+  function words(c) {
+    var name = NAMES[c.d];
+    var base = c.n + ' ' + (c.n === 1 ? name[0] : name[1]);
+    return c.whole ? c.whole + ' and ' + base : base;
+  }
+
+  function fracNode(c, extra) {
+    var box = el('span', 'f' + (extra ? ' ' + extra : ''));
+    var vis = el('span');
+    vis.setAttribute('aria-hidden', 'true');
+    vis.style.display = 'inline-flex';
+    vis.style.alignItems = 'center';
+    vis.style.gap = '4px';
+    if (c.whole) vis.appendChild(el('span', '', String(c.whole)));
+    var st = el('span', 'stack');
+    st.appendChild(el('span', 'top', String(c.n)));
+    st.appendChild(el('span', 'bot', String(c.d)));
+    vis.appendChild(st);
+    box.appendChild(vis);
+    box.appendChild(el('span', 'sr', words(c)));
+    return box;
+  }
+  function plain(n, d) { return { whole: 0, n: n, d: d }; }
+
+  /* Builds a sentence from text and fractions */
+  function sentence(parts, cls) {
+    var p = el('p', cls);
+    parts.forEach(function (x) {
+      if (typeof x === 'object') p.appendChild(fracNode(x, 'say-f'));
+      else p.appendChild(document.createTextNode(String(x)));
+    });
+    return p;
+  }
+
+  /* ---------- Game state ---------- */
+  var game = null;
+
+  function newGame(levelIndex) {
+    var rounds = [];
+    LEVELS[levelIndex].pools.forEach(function (pool) {
+      shuffle(pool.rounds).slice(0, pool.take).forEach(function (r) {
+        rounds.push({ L: r.L, r: r.r, cards: r.cards, second: false });
+      });
+    });
+    game = { level: levelIndex, rounds: rounds, main: rounds.length, idx: 0, stars: 0, total: 0, missed: [], secondDone: 0, secondTotal: 0, addedSecond: false, round: null };
+    rounds.forEach(function (r) { game.total += r.cards.length; });
+    show('game');
+    startRound();
+  }
+
+  function startRound() {
+    var r = game.rounds[game.idx];
+    game.round = {
+      L: r.L, r: r.r, second: r.second, stops: r.L * r.r, pos: 0, selected: 0, done: false,
+      cards: shuffle(r.cards).map(function (t, i) {
+        var c = parse(t);
+        c.id = i; c.at = null; c.locked = false; c.tries = 0;
+        return c;
+      })
+    };
+    buildLine();
+    clear($('feedback'));
+    $('say').textContent = '';
+    renderHeader();
+    renderTray();
+    renderTrain();
+    renderPlaced();
+    setControls();
+    $('roundTitle').focus();
+    window.scrollTo(0, 0);
+  }
+
+  function selectedCard() {
+    var R = game.round;
+    if (R.selected === null) return null;
+    for (var i = 0; i < R.cards.length; i++) if (R.cards[i].id === R.selected) return R.cards[i];
+    return null;
+  }
+
+  /* ---------- Drawing ---------- */
+  function show(name) {
+    ['start', 'game', 'end'].forEach(function (s) { $(s).hidden = s !== name; });
+  }
+  function pct(v, total) { return (v * 100 / total) + '%'; }
+
+  function renderHeader() {
+    var R = game.round;
+    var name = LEVELS[game.level].name;
+    $('roundTitle').textContent = R.second
+      ? name + ': second chance'
+      : name + ', round ' + (game.idx + 1) + ' of ' + game.main;
+    $('chance').hidden = !R.second;
+    $('stars').textContent = String(game.stars);
+    $('starWord').textContent = game.stars === 1 ? 'star' : 'stars';
+    $('lineInfo').textContent = R.r > 1
+      ? 'Every whole on this line has ' + R.L + ' equal jumps.'
+      : 'This line has ' + R.L + ' equal jumps from 0 to 1.';
+  }
+
+  function buildLine() {
+    var R = game.round, box = $('sleepers');
+    clear(box);
+    for (var i = 0; i <= R.stops; i++) {
+      var isWhole = i % R.L === 0;
+      var s = el('div', 'sleeper' + (isWhole ? ' whole' : ''));
+      s.style.left = pct(i, R.stops);
+      box.appendChild(s);
+      if (isWhole) {
+        var n = el('div', 'num', String(i / R.L));
+        n.style.left = pct(i, R.stops);
+        box.appendChild(n);
+      }
+    }
+    var t = $('track');
+    t.setAttribute('aria-valuemax', String(R.stops));
+  }
+
+  function renderTrain() {
+    var R = game.round;
+    $('train').style.left = pct(R.pos, R.stops);
+    var t = $('track');
+    t.setAttribute('aria-valuenow', String(R.pos));
+    t.setAttribute('aria-valuetext', R.pos + (R.pos === 1 ? ' jump' : ' jumps') + ' from 0. ' + R.L + ' jumps make 1.');
+  }
+
+  function renderTray() {
+    var R = game.round, tray = $('tray');
+    clear(tray);
+    R.cards.forEach(function (c) {
+      var b = el('button', 'parcel');
+      b.type = 'button';
+      b.id = 'parcel' + c.id;
+      b.appendChild(fracNode(c));
+      var isSel = R.selected === c.id && !c.locked;
+      var tagText = c.locked ? '✓ Right' : isSel ? 'Picked' : c.at !== null ? 'On the line' : c.tries ? 'Try again' : 'Pick me';
+      if (isSel) b.className += ' sel';
+      b.appendChild(el('span', 'tag', tagText));
+      b.setAttribute('aria-label', words(c) + ', ' + tagText);
+      b.setAttribute('aria-pressed', isSel ? 'true' : 'false');
+      b.disabled = c.locked;
+      b.addEventListener('click', function () { pick(c.id); });
+      tray.appendChild(b);
+    });
+  }
+
+  function renderPlaced() {
+    var R = game.round, box = $('placed');
+    clear(box);
+    var onLine = R.cards.filter(function (c) { return c.at !== null; })
+      .sort(function (a, b) { return a.at - b.at; });
+    var rows = [];
+    var width = box.clientWidth || 600;
+    var gap = (window.innerWidth <= 620 ? 52 : 62) * R.stops / width;
+    onLine.forEach(function (c) {
+      var row = 0;
+      while (rows[row] !== undefined && c.at - rows[row] < gap) row++;
+      rows[row] = c.at;
+      var m = el('div', 'mini' + (c.locked ? ' ok' : ''));
+      m.style.left = pct(c.at, R.stops);
+      m.style.top = (10 + row * 66) + 'px';
+      m.appendChild(fracNode(c));
+      if (c.locked) m.appendChild(el('span', 'okmark', '✓'));
+      box.appendChild(m);
+    });
+    box.style.height = rows.length ? (14 + rows.length * 66) + 'px' : '0';
+  }
+
+  function setControls() {
+    var done = game.round.done;
+    ['back', 'forward', 'drop', 'check'].forEach(function (id) { $(id).disabled = done; });
+    $('track').setAttribute('aria-disabled', done ? 'true' : 'false');
+  }
+
+  /* ---------- Actions ---------- */
+  function pick(id) {
+    var R = game.round;
+    if (R.done) return;
+    R.selected = id;
+    var c = selectedCard();
+    if (c && c.at !== null) { R.pos = c.at; renderTrain(); }
+    renderTray();
+    $('say').textContent = '';
+    $('say').appendChild(document.createTextNode('Picked '));
+    $('say').appendChild(fracNode(c, 'say-f'));
+    $('say').appendChild(document.createTextNode('. Now move the train.'));
+    $('track').focus();
+  }
+
+  function moveTo(p) {
+    var R = game.round;
+    if (R.done) return;
+    R.pos = Math.max(0, Math.min(R.stops, p));
+    renderTrain();
+  }
+
+  function firstOpen(R) {
+    for (var i = 0; i < R.cards.length; i++) {
+      if (!R.cards[i].locked && R.cards[i].at === null) return R.cards[i].id;
+    }
+    return null;
+  }
+
+  function drop() {
+    var R = game.round;
+    if (R.done) return;
+    var c = selectedCard();
+    if (!c || c.locked) {
+      $('say').textContent = 'Pick a parcel first.';
+      var b = $('tray').querySelector('button:not(:disabled)');
+      if (b) b.focus();
+      return;
+    }
+    if (R.pos === 0) {
+      $('say').textContent = 'The train is still at 0. Move it along the line first.';
+      $('track').focus();
+      return;
+    }
+    c.at = R.pos;
+    R.selected = firstOpen(R);
+    renderTray();
+    renderPlaced();
+    if (R.selected !== null) {
+      $('say').textContent = 'Parcel dropped. Pick the next one.';
+      var next = $('parcel' + R.selected);
+      if (next) next.focus();
+    } else {
+      $('say').textContent = 'All the parcels are on the line. Press Check, or pick a parcel to move it.';
+      $('check').focus();
+    }
+  }
+
+  function check() {
+    var R = game.round;
+    if (R.done) return;
+    var waiting = R.cards.filter(function (c) { return !c.locked && c.at === null; }).length;
+    if (waiting) {
+      $('say').textContent = waiting === 1 ? 'One parcel still needs delivering.' : waiting + ' parcels still need delivering.';
+      var b = $('parcel' + firstOpen(R));
+      if (b) b.focus();
+      return;
+    }
+    var snapshot = {};
+    R.cards.forEach(function (c) { snapshot[c.id] = c.at; });
+    var messages = [];
+    var firstWrong = null;
+
+    R.cards.forEach(function (c) {
+      if (c.locked) return;
+      var goal = target(c, R.L);
+      if (c.at === goal) {
+        c.locked = true;
+        if (c.tries === 0) {
+          if (R.second) { /* stars are only for main rounds */ }
+          else game.stars++;
+        }
+        if (R.second) game.secondDone += c.tries === 0 ? 1 : 0;
+        messages.push({ good: true, card: c });
+      } else {
+        c.tries++;
+        if (c.tries === 1 && !R.second) game.missed.push({ text: c.text, L: R.L, r: R.r });
+        messages.push({ good: false, card: c, at: c.at });
+        c.at = null;
+        if (firstWrong === null) firstWrong = c.id;
+      }
+    });
+
+    R.done = R.cards.every(function (c) { return c.locked; });
+    R.selected = firstWrong;
+    if (firstWrong !== null) moveTrainHome(R);
+    renderHeader();
+    renderTray();
+    renderPlaced();
+    setControls();
+    $('say').textContent = '';
+    renderFeedback(messages, snapshot);
+    var fb = $('feedback');
+    fb.focus({ preventScroll: true });
+    fb.scrollIntoView({ block: 'nearest' });
+  }
+
+  function moveTrainHome(R) { R.pos = 0; renderTrain(); }
+
+  /* ---------- Feedback ---------- */
+  function whyRight(c, R) {
+    var goal = target(c, R.L), mult = R.L / c.d;
+    if (c.whole) {
+      return [c, ' is 1 whole, which is ' + R.L + ' jumps, and ', plain(c.n, c.d), ' more. That makes ' + goal + ' jumps.'];
+    }
+    if (c.n > c.d) {
+      return c.d === R.L
+        ? [c, ' is ' + goal + ' jumps. ' + R.L + ' jumps make 1, so it goes past 1.']
+        : [c, ' is the same as ', plain(goal, R.L), ', so it is ' + goal + ' jumps along.'];
+    }
+    if (c.d === R.L) return [c, ' is ' + c.n + ' of the ' + R.L + ' equal jumps.'];
+    return [c, ' is the same as ', plain(goal, R.L), '. Multiply the top and bottom by ' + mult + '.'];
+  }
+
+  function reason(c, at, R, snapshot) {
+    var goal = target(c, R.L);
+    var top = topNumber(c);
+    if (c.whole && at <= R.L) {
+      return [c, ' has a whole number in it, so it is bigger than 1. Go past the 1 sign.'];
+    }
+    if (!c.whole && c.n > c.d && at <= R.L) {
+      return [c, ' is bigger than 1, because ' + c.d + ' ' + NAMES[c.d][1] + ' make 1. Go past the 1 sign.'];
+    }
+    if (top < c.d && at > R.L) {
+      return [c, ' is smaller than 1, so it belongs before the 1 sign.'];
+    }
+    for (var i = 0; i < R.cards.length; i++) {
+      var o = R.cards[i];
+      if (o.id === c.id || o.whole || c.whole || o.n !== c.n || o.d === c.d) continue;
+      var big = c.d < o.d ? c : o, small = c.d < o.d ? o : c;
+      if (snapshot[big.id] < snapshot[small.id]) {
+        return ['Careful! ', small, ' is smaller than ', big, ', even though ' + small.d + ' is bigger than ' + big.d + '. A bigger bottom number (denominator) means smaller parts.'];
+      }
+    }
+    if (at === top && c.d !== R.L) {
+      return ['You counted ' + top + (top === 1 ? ' jump' : ' jumps') + ', but these jumps are not ' + NAMES[c.d][1] + '.'];
+    }
+    return [c, ' is not at that stop. ' + (at < goal ? 'You stopped too soon.' : 'You went too far.')];
+  }
+
+  function modelNode(c, at, R) {
+    var count = R.r * c.d;
+    var shaded = c.tries >= 2 ? topNumber(c) : 0;
+    var wrap = el('div', 'model');
+    var parts = el('div', 'parts');
+    parts.setAttribute('role', 'img');
+    parts.setAttribute('aria-label', 'A bar split into ' + c.d + ' equal parts for each whole.' + (shaded ? ' ' + shaded + ' parts are shaded.' : ''));
+    for (var i = 0; i < count; i++) {
+      var p = el('div', 'part' + (i < shaded ? ' shade' : '') + (i > 0 && i % c.d === 0 ? ' wholeline' : ''));
+      parts.appendChild(p);
+    }
+    wrap.appendChild(parts);
+    var share = at / R.stops;
+    var you = el('div', 'you' + (share < 0.2 ? ' leftish' : share > 0.8 ? ' rightish' : ''), 'You stopped here');
+    you.style.left = pct(at, R.stops);
+    wrap.appendChild(you);
+    return wrap;
+  }
+
+  function renderFeedback(messages, snapshot) {
+    var R = game.round, box = $('feedback');
+    clear(box);
+    var wrong = messages.filter(function (m) { return !m.good; });
+    var right = messages.filter(function (m) { return m.good; });
+
+    wrong.forEach(function (m) {
+      var c = m.card;
+      var block = el('div', 'fb bad');
+      var head = sentence(['✗ Not yet: ', c], 'mark');
+      block.appendChild(head);
+      block.appendChild(sentence(reason(c, m.at, R, snapshot)));
+      var top = topNumber(c);
+      if (c.tries >= 2) {
+        block.appendChild(sentence(['The shaded bar ends at the right stop for ', c, '. Line the train up with the end of the shading.']));
+      } else {
+        block.appendChild(sentence(['The bar lines up with the track. It is split into ' + c.d + ' equal parts for each whole. Count ' + top + (top === 1 ? ' part' : ' parts') + ' from 0.']));
+      }
+      block.appendChild(modelNode(c, m.at, R));
+      box.appendChild(block);
+    });
+
+    if (right.length) {
+      var ok = el('div', 'fb good');
+      ok.appendChild(sentence(['✓ Right!'], 'mark'));
+      right.forEach(function (m) { ok.appendChild(sentence(whyRight(m.card, R))); });
+      box.appendChild(ok);
+    }
+
+    var actions = el('div', 'fb-actions');
+    if (R.done) {
+      var order = R.cards.slice().sort(function (a, b) { return target(a, R.L) - target(b, R.L); });
+      var parts = ['Smallest to largest: '];
+      order.forEach(function (c, i) {
+        if (i > 0) parts.push(target(c, R.L) === target(order[i - 1], R.L) ? ' equals ' : ', then ');
+        parts.push(c);
+      });
+      var sum = el('div', 'fb');
+      sum.appendChild(sentence(parts, 'mark'));
+      box.appendChild(sum);
+      var last = game.idx + 1 >= game.rounds.length && !willAddSecond();
+      var next = el('button', 'go', last ? 'See my results' : 'Next round');
+      next.type = 'button';
+      next.id = 'nextRound';
+      next.addEventListener('click', nextRound);
+      actions.appendChild(next);
+    } else {
+      var again = el('button', 'go', 'Try those parcels again');
+      again.type = 'button';
+      again.addEventListener('click', function () {
+        var b = $('parcel' + R.selected);
+        window.scrollTo(0, 0);
+        if (b) b.focus();
+      });
+      actions.appendChild(again);
+    }
+    box.appendChild(actions);
+  }
+
+  function willAddSecond() { return !game.addedSecond && game.missed.length > 0; }
+
+  function addSecondChance() {
+    game.addedSecond = true;
+    var groups = {}, order = [];
+    game.missed.forEach(function (m) {
+      var key = m.L + '-' + m.r;
+      if (!groups[key]) { groups[key] = { L: m.L, r: m.r, cards: [], second: true }; order.push(key); }
+      if (groups[key].cards.indexOf(m.text) === -1 && groups[key].cards.length < 3) groups[key].cards.push(m.text);
+    });
+    order.slice(0, 2).forEach(function (k) {
+      game.rounds.push(groups[k]);
+      game.secondTotal += groups[k].cards.length;
+    });
+  }
+
+  function nextRound() {
+    if (!game || !game.round.done) return;
+    if (game.idx + 1 >= game.rounds.length && willAddSecond()) addSecondChance();
+    if (game.idx + 1 >= game.rounds.length) { finish(); return; }
+    game.idx++;
+    startRound();
+  }
+
+  function finish() {
+    var lvl = game.level, good = game.stars * 4 >= game.total * 3;
+    show('end');
+    $('endStars').textContent = game.stars + (game.stars === 1 ? ' star' : ' stars');
+    $('endDetail').textContent = 'You placed ' + game.stars + ' of ' + game.total + ' parcels correctly first time.';
+    $('endSecond').textContent = game.secondTotal
+      ? 'In the second chance rounds you got ' + game.secondDone + ' of ' + game.secondTotal + ' right first time.'
+      : '';
+    var hasNext = lvl + 1 < LEVELS.length;
+    $('endNext').hidden = !(good && hasNext);
+    if (good && hasNext) $('endAdvice').textContent = 'You are ready for ' + LEVELS[lvl + 1].name + '.';
+    else if (good) $('endAdvice').textContent = 'You finished the hardest level. Can you get every star?';
+    else $('endAdvice').textContent = 'Play this level again and use the bars to help you count.';
+    $('endTitle').focus();
+    window.scrollTo(0, 0);
+  }
+
+  function restart() {
+    game = null;
+    show('start');
+    $('startTitle').focus();
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Pointer and keyboard on the track ---------- */
+  function stopFromEvent(e) {
+    var box = $('line').getBoundingClientRect();
+    var share = (e.clientX - box.left) / box.width;
+    return Math.round(Math.max(0, Math.min(1, share)) * game.round.stops);
+  }
+  var dragging = false;
+  $('track').addEventListener('pointerdown', function (e) {
+    if (!game || game.round.done) return;
+    dragging = true;
+    try { this.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+    moveTo(stopFromEvent(e));
+  });
+  $('track').addEventListener('pointermove', function (e) {
+    if (dragging && game) moveTo(stopFromEvent(e));
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (t) {
+    $('track').addEventListener(t, function () { dragging = false; });
+  });
+
+  $('track').addEventListener('keydown', function (e) {
+    if (!game || game.round.done) return;
+    var R = game.round, used = true;
+    switch (e.key) {
+      case 'ArrowRight': case 'ArrowUp': moveTo(R.pos + 1); break;
+      case 'ArrowLeft': case 'ArrowDown': moveTo(R.pos - 1); break;
+      case 'Home': moveTo(0); break;
+      case 'End': moveTo(R.stops); break;
+      case 'Enter': case ' ': case 'Spacebar': drop(); break;
+      default: used = false;
+    }
+    if (used) e.preventDefault();
+  });
+
+  $('back').addEventListener('click', function () { if (game) moveTo(game.round.pos - 1); });
+  $('forward').addEventListener('click', function () { if (game) moveTo(game.round.pos + 1); });
+  $('drop').addEventListener('click', drop);
+  $('check').addEventListener('click', check);
+  $('restart1').addEventListener('click', restart);
+  $('restart2').addEventListener('click', restart);
+  $('endAgain').addEventListener('click', function () { if (game) newGame(game.level); });
+  $('endNext').addEventListener('click', function () { if (game && game.level + 1 < LEVELS.length) newGame(game.level + 1); });
+  window.addEventListener('resize', function () { if (game && game.round && !$('game').hidden) renderPlaced(); });
+
+  /* ---------- Start screen ---------- */
+  LEVELS.forEach(function (l, i) {
+    var b = el('button');
+    b.type = 'button';
+    b.appendChild(el('strong', '', l.name));
+    b.appendChild(el('span', '', l.blurb));
+    b.addEventListener('click', function () { newGame(i); });
+    $('levelButtons').appendChild(b);
+  });
+
+  (function workedExample() {
+    var c = parse('3/4');
+    var box = $('example');
+    box.appendChild(sentence(['Example: for ', c, ', the line has 4 equal jumps from 0 to 1. Count 3 jumps and drop the parcel.']));
+    var model = el('div', 'model');
+    model.style.marginBottom = '6px';
+    var parts = el('div', 'parts');
+    parts.setAttribute('role', 'img');
+    parts.setAttribute('aria-label', 'A bar split into 4 equal parts with 3 parts shaded.');
+    for (var i = 0; i < 4; i++) parts.appendChild(el('div', 'part' + (i < 3 ? ' shade' : '')));
+    model.appendChild(parts);
+    box.appendChild(model);
+  }());
+}());
+</script>
+</body>
+</html>
